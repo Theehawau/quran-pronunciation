@@ -9,7 +9,7 @@ from glob import glob
 from pathlib import Path
 
 output_file = "annotation.csv"
-current_audio="/Users/hawautoyin/Documents/projects/pronunciation/Sample_verse.wav"
+current_audio="Sample_verse.wav"
 current_text = " ".join(str("طَيِّ السِّجِلِّ لِلْكُتُبِ").replace(" ", "_"))
 
 audio_root = "./recordings/"    
