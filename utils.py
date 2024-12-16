@@ -6,48 +6,24 @@ import pandas as pd
 import gradio as gr
 import soundfile as sf
 
-global current_audio
-global current_text
+global samples_to_record
 
+with open("Record Prompts - Extra.csv", "r") as f: 
+        header = f.readline()
+        samples_to_record =  [(index, line.strip()) for index, line in enumerate(f)]
+        # shuffle the samples
+        random.shuffle(samples_to_record)
+        samples_to_record = random.choices(samples_to_record, k=50)
 
-with open("Record Prompts - Sheet1.csv", "r") as f: 
-    header = f.readline()
-    samples_to_record =  [(index, line.strip()) for index, line in enumerate(f)]
-    # shuffle the samples
-    random.shuffle(samples_to_record)
-
+def load_data():
+    with open("Record Prompts - Extra.csv", "r") as f: 
+        global samples_to_record
+        header = f.readline()
+        samples_to_record =  [(index, line.strip()) for index, line in enumerate(f)]
+        # shuffle the samples
+        random.shuffle(samples_to_record)
+        
 global index
-# with open(output_file, 'r') as f:
-#     index = sum(1 for line in f)
-
-# current_text = texts[index]
-# current_audio = None
-
-# def give_audio_text():
-#     global index
-#     index += 1
-#     current_text = texts[index]
-#     return current_text
-
-
-# [def generate_highlighted_text(parts, errors):
-#     """
-#     Generates the formatted HTML for the highlighted text with multiple errors.
-    
-#     :param parts: List of text segments between errors (e.g., [start_1, start_2, ..., end]).
-#     :param errors: List of error segments to highlight (e.g., [error_1, error_2, ...]).
-#     :return: Formatted HTML string.
-#     """
-#     if len(parts) != len(errors) + 1:
-#         raise ValueError("The number of parts must be one more than the number of errors.")
-    
-#     highlight_template = '<p style="font-family:\'Traditional Arabic\'; font-size:150px;">'
-    
-#     for i in range(len(errors)):
-#         highlight_template += f'{parts[i]}<span style="color:red;">{errors[i]}</span>'
-#     highlight_template += f'{parts[-1]}</p>'
-    
-#     return highlight_template
 
 def save_audio():
     return gr.Info("Recording done, play to doublecheck or click on 'Save Audio' to save the audio", duration=5), gr.Button(visible=True)
@@ -68,18 +44,25 @@ def activate_button():
 def clear():
   return None,gr.Button(visible=False)
 
+def clear_markdown():
+    return gr.Markdown(value="")
+
+def show_button():
+    return gr.Button(visible=True)
+
 def record_new(recorder_dir, transcription_index, audio_name):
     with open(f"{recorder_dir}/recordings.txt", "r") as f:
         done = len(f.readlines())
         if done >= len(samples_to_record):
             # return gr.Column(visible=False), gr.Column(visible=False), gr.Markdown(value="All recordings done!"), "", -1, ""
             done = random.randint(0, len(samples_to_record)-1)
+            # gr.Info("Minimum recordings done! Please exit the application.", duration=15)
     ind, text = samples_to_record[done]
     st,err,end,instruction=text.split(',')
     transcription_index=ind
     audio_name = f"{recorder_dir}/{ind:05}.wav"
     return gr.Markdown(value=highlight_template.format(st,err,end)),gr.Markdown(value=instruction_template.format(instruction)), \
-            audio_name, transcription_index, audio_name
+            audio_name, transcription_index, audio_name,done
 
 def begin_session(name, gender, age, dialect):
     os.makedirs(f"recordings/{name}-{gender}-{dialect}", exist_ok=True)
@@ -96,6 +79,7 @@ highlight_template = '<p style="font-family:"Traditional Arabic",font-size:150px
 instruction_template = '<p style="font-family:"Traditional Arabic",font-size:150px;"><mark>{0}</mark></p>'
 
 def begin_record(recorder_dir, audio_name, transcription_index):
+    load_data()
     with open(f"{recorder_dir}/recordings.txt", "r") as f:
         done = len(f.readlines())
         if done >= len(samples_to_record):
@@ -108,6 +92,9 @@ def begin_record(recorder_dir, audio_name, transcription_index):
     transcription_index=ind
     return gr.Column(visible=True), gr.Column(visible=False), \
         gr.Markdown(value=highlight_template.format(st,err,end)),gr.Markdown(value=instruction_template.format(instruction)), \
-            audio_name, transcription_index, audio_name
+            audio_name, transcription_index, audio_name, done
 
-    
+def increase(num):
+    if num == 15:
+        return 1
+    return num + 1
