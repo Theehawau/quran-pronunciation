@@ -7,6 +7,7 @@ import pandas as pd
 
 from glob import glob
 from pathlib import Path
+from itertools import islice
 
 output_file = "annotation.csv"
 current_audio="Sample_verse.wav"
@@ -14,7 +15,37 @@ current_text = " ".join(str("طَيِّ السِّجِلِّ لِلْكُتُب�
 
 audio_root = "./recordings_OI" 
 
+recorders = [x for x in os.walk(audio_root)][0][1] 
+
+def batched(iterable, n):
+    # batched('ABCDEFG', 3) → ABC DEF G
+    if n < 1:
+        raise ValueError('n must be at least one')
+    iterator = iter(iterable)
+    while batch := tuple(islice(iterator, n)):
+        yield batch
+        
+grouped = list(batched(recorders, 7))
+
+group_names = [f"group_{i}" for i,_ in enumerate(grouped)]
+
+wav_files_per_group = {}
+
+for i,spkr in enumerate(grouped): 
+    wav_files = []
+    for w in [list(glob(f"{audio_root}/{s}/*.wav")) for s in spkr]:
+        wav_files.extend(w)
+        
+    wav_files.sort()
+    txt_files=[x.replace(".wav",".txt") for x in wav_files]
+
+    aud_text = list(zip(wav_files, txt_files))
+    
+    wav_files_per_group[f"group_{i}"] = aud_text
+
+
 wav_files= list(glob(f"{audio_root}/*/*.wav"))
+wav_files.sort()
 txt_files=[x.replace(".wav",".txt") for x in wav_files]
 
 aud_text = list(zip(wav_files, txt_files))
@@ -40,14 +71,16 @@ def read_txt(path):
                 .replace('<h4>', "").replace("</h4>", "")
     return x, x_
 
-# file_path = "./Record Prompts - Extra.csv"
 file_path = "./Record Prompts - Sheet3.csv"
 
 texts_instructions = {}
 
 texts_plain_instruction = {}
 def get_separated(text):
-    return " ".join([x.replace("  "," ").replace(" ", "_") for x in text])
+    return " ".join([x.replace("  "," ").replace(" ", "_") for x in text])\
+            .replace(" @ ","@")
+            
+    return " ".join([x.replace("  ", " ").replace(" ", "_") if "@" not in x else x for x in text])
 
 with open(file_path, "r") as f:
     header = f.readline()
@@ -66,15 +99,12 @@ with open(file_path, "r") as f:
     for line in f:
         data = line.strip().split(",")
         data = [d.replace('\n','').replace("  "," ") for d in data]
-        # text = f"{data[0]}{data[1]}{data[2]}"
         text = f"{data[1]}{data[2]}{data[3]}"
         text = text.replace(" ", "")
         texts_plain_instruction[text] = '<p style="font-family:"Traditional Arabic",font-size:150px;"><mark>{0}</mark></p>'.format(data[4])
 
 def give_audio_text(gen=None):
-    global current_audio
-    global current_text
-    global aud_text_generator
+    global current_audio, current_text, aud_text_generator
     global index, ai_annotation, plain_instruction
     # Use the passed generator or default to the global one
     if gen is None:
@@ -84,7 +114,6 @@ def give_audio_text(gen=None):
         current_text, x_ = read_txt(current_text)
         ai_annotation = texts_instructions.get(x_.strip().replace(" ", "").replace("ۚ",""), get_separated(x_.strip()))
         plain_instruction = texts_plain_instruction.get(x_.strip().replace(" ", "").replace("ۚ",""), "")
-        # x_ = " ".join(str(x_).replace(" ", "_"))
         index +=1
         return current_audio, current_audio, ai_annotation ,current_text, plain_instruction
     
@@ -110,20 +139,25 @@ def increase(num):
 
 start_index = 1
 
-def begin_annotation(annotator):
+def begin_annotation(annotator, group):
+    global aud_text
     os.makedirs(f"./annotations/{annotator}", exist_ok=True)
-    global output_file, index, current_audio, current_text, ai_annotation, plain_instruction, start_index
+    global output_file, index, current_audio, current_text, ai_annotation, plain_instruction, start_index, wav_files_per_group
+    print(wav_files_per_group)
     output_file = f"./annotations/{annotator}/annotation.csv"
+    if not os.path.exists(output_file):
+        os.system(f"touch {output_file}")
     with open(output_file, 'r') as f:
         index = sum(1 for line in f)
     start_index = index
+    aud_text = wav_files_per_group[group]
     aud_text_generator = get_audio_path(aud_text[index:])
     current_audio, current_text = next(aud_text_generator)
     current_text, x_ = read_txt(current_text)
     ai_annotation = texts_instructions.get(x_.strip().replace(" ", "").replace("ۚ",""), get_separated(x_.strip()))
     plain_instruction = texts_plain_instruction.get(x_.strip().replace(" ", "").replace("ۚ",""), "")
-    return gr.Column(visible=True), gr.Column(visible=False), \
-        start_index, current_audio,current_audio, current_text,plain_instruction, ai_annotation
+    return gr.Column(visible=True), gr.Column(visible=False), gr.Number(start_index, label = f"X of {len(aud_text)} audios" ,interactive=False),\
+             current_audio,current_audio, current_text,plain_instruction, ai_annotation
 
 aud_text_generator = get_audio_path(aud_text[index:])
 current_audio, current_text = next(aud_text_generator)
@@ -180,11 +214,12 @@ with gr.Blocks(title = "Fix Transcription") as tool:
     
     with gr.Column(visible=True) as annotation_name:
         annotator_name = gr.Textbox(label="Annotator Name", placeholder="Enter your name", interactive=True)
+        annotator_group = gr.Dropdown(group_names, label="Annotator Group")
         begin_annotate = gr.Button("Begin Annotation", variant="primary")
     
     with gr.Column(visible=False) as annotation_block:
         progress = gr.Number(start_index, label = f"X of {len(aud_text)} audios" ,interactive=False)
-        audio = gr.Audio(label="Audio", interactive=False, value=current_audio, autoplay=True)
+        audio = gr.Audio(label="Audio", interactive=False, value=current_audio, autoplay=False)
         audio_file_name = gr.Textbox(value=current_audio, label="Audio File Name", interactive=False, visible=False)
         
         gr.Markdown('<h3>Expected Transcription:</h3>')
@@ -198,7 +233,7 @@ with gr.Blocks(title = "Fix Transcription") as tool:
         get_new_audio = gr.Button("Get New Audio/Save updated transcription",
                             variant="primary")
     
-    begin_annotate.click(begin_annotation, [annotator_name], \
+    begin_annotate.click(begin_annotation, [annotator_name, annotator_group], \
                          [annotation_block, annotation_name, progress, audio, audio_file_name,\
                              original_text, original_annotation, transcription])
     
