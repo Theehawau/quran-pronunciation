@@ -71,7 +71,7 @@ def begin_session(name, gender, age, dialect):
     if os.path.exists(f"recordings/{name}-{gender}-{dialect}/recordings.txt"):
         return gr.Info("Welcome back! Please continue from where you stopped", duration=3), f"recordings/{name}-{gender}-{dialect}"
     else:
-        os.system(f"touch recordings/{name}-{gender}-{dialect}/recordings.txt")
+        os.system(f"touch \"recordings/{name}-{gender}-{dialect}/recordings.txt\"")
         return gr.Info("Welcome! Please begin your session", duration=3), f"recordings/{name}-{gender}-{dialect}"
     
 highlight_template = '<p style="font-family:"Traditional Arabic",font-size:150px;">{0}<span style="color:red;">{1}</span>{2}</p>'
