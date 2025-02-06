@@ -46,7 +46,7 @@ with gr.Blocks(title = "Quran Pronunciation") as demo:
         with gr.Row():
             recorder_name = gr.Textbox(label="Recorder Name", placeholder="Enter your name")    
             recorder_dialect = gr.Dropdown(
-            ["saudi", "emirati", "egyptian", "tunisian", "morrocan", "algerian"], label="Native Arabic Dialect", info="Will add more dialects later!"
+            ["saudi", "emirati", "egyptian", "tunisian", "morrocan", "algerian", "syrian", "jordanian","sudanese","non-native"], label="Native Arabic Dialect", info="Will add more dialects later!"
             )
             gender = gr.Radio(
                 ["Female", "Male"], label="Gender"
