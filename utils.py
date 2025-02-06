@@ -33,7 +33,7 @@ def save_transcription(audio, file_name, text,recorder_path):
         file_name = file_name.replace('.wav', f'{random.randint(0, 1000)}.wav')
     sf.write(file_name, audio[1], 16000)
     text_file = file_name.replace('.wav', '.txt')
-    os.system(f"touch {text_file}")
+    os.system(f"touch \"{text_file}\"")
     os.system(f"echo '{text}' >> {text_file}")
     os.system(f"echo '{file_name}\t{text}' >> {recorder_path}/recordings.txt")
     return gr.Button("Save Audio",interactive=False)
